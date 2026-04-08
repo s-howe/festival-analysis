@@ -1,0 +1,142 @@
+from __future__ import annotations
+
+import hashlib
+from pathlib import Path
+
+import duckdb
+
+from .config import DB_PATH
+
+SCHEMA_PATH = Path(__file__).with_name("schema.sql")
+
+# 63-bit signed range so values fit in BIGINT
+_HASH_MASK = (1 << 63) - 1
+
+
+def stable_id(*parts: str | int | None) -> int:
+    """Deterministic 63-bit hash for use as a primary key."""
+    h = hashlib.blake2b(digest_size=8)
+    for p in parts:
+        h.update(b"\x1f")
+        h.update(str(p if p is not None else "").encode("utf-8"))
+    return int.from_bytes(h.digest(), "big") & _HASH_MASK
+
+
+def connect(db_path: Path | None = None) -> duckdb.DuckDBPyConnection:
+    path = db_path or DB_PATH
+    path.parent.mkdir(parents=True, exist_ok=True)
+    return duckdb.connect(str(path))
+
+
+def init_schema(con: duckdb.DuckDBPyConnection) -> None:
+    con.execute(SCHEMA_PATH.read_text())
+
+
+def upsert_festival(
+    con: duckdb.DuckDBPyConnection,
+    name: str,
+    size: str | None,
+    ra_slug: str | None,
+    ra_club_id: str | None,
+    notes: str | None,
+) -> int:
+    festival_id = stable_id(name)
+    con.execute(
+        """
+        INSERT INTO festivals (festival_id, name, size_band, ra_slug, ra_club_id, notes)
+        VALUES (?, ?, ?, ?, ?, ?)
+        ON CONFLICT (festival_id) DO UPDATE SET
+          size_band = excluded.size_band,
+          ra_slug = excluded.ra_slug,
+          ra_club_id = excluded.ra_club_id,
+          notes = excluded.notes
+        """,
+        [festival_id, name, size, ra_slug, ra_club_id, notes],
+    )
+    return festival_id
+
+
+def upsert_instance(
+    con: duckdb.DuckDBPyConnection,
+    festival_id: int,
+    ra_event_id: str,
+    edition_year: int | None,
+    start_date,
+    end_date,
+    location_country: str | None,
+    location_city: str | None,
+    venue_name: str | None,
+) -> int:
+    instance_id = stable_id(festival_id, ra_event_id)
+    con.execute(
+        """
+        INSERT INTO festival_instances (
+          instance_id, festival_id, ra_event_id, edition_year,
+          start_date, end_date, location_country, location_city, venue_name
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+        ON CONFLICT (instance_id) DO NOTHING
+        """,
+        [
+            instance_id,
+            festival_id,
+            ra_event_id,
+            edition_year,
+            start_date,
+            end_date,
+            location_country,
+            location_city,
+            venue_name,
+        ],
+    )
+    return instance_id
+
+
+def upsert_artist(
+    con: duckdb.DuckDBPyConnection,
+    display_name: str,
+    normalized_name: str,
+    ra_artist_id: str | None,
+) -> int:
+    artist_id = stable_id(normalized_name, ra_artist_id or "")
+    con.execute(
+        """
+        INSERT INTO artists (artist_id, ra_artist_id, display_name, normalized_name)
+        VALUES (?, ?, ?, ?)
+        ON CONFLICT (artist_id) DO NOTHING
+        """,
+        [artist_id, ra_artist_id, display_name, normalized_name],
+    )
+    return artist_id
+
+
+def upsert_lineup_entry(
+    con: duckdb.DuckDBPyConnection,
+    instance_id: int,
+    artist_id: int,
+    raw_billing: str | None,
+) -> None:
+    entry_id = stable_id(instance_id, artist_id)
+    con.execute(
+        """
+        INSERT INTO lineup_entries (entry_id, instance_id, artist_id, raw_billing)
+        VALUES (?, ?, ?, ?)
+        ON CONFLICT (entry_id) DO NOTHING
+        """,
+        [entry_id, instance_id, artist_id, raw_billing],
+    )
+
+
+def insert_raw_event(
+    con: duckdb.DuckDBPyConnection,
+    cache_key: str,
+    festival_id: int | None,
+    payload_json: str,
+) -> None:
+    con.execute(
+        """
+        INSERT INTO raw_events (cache_key, festival_id, payload)
+        VALUES (?, ?, ?)
+        ON CONFLICT (cache_key) DO NOTHING
+        """,
+        [cache_key, festival_id, payload_json],
+    )

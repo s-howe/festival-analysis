@@ -1,0 +1,26 @@
+# Database
+data/*.duckdb
+data/*.duckdb.wal
+
+# RA response cache
+.cache/
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+.venv/
+*.egg-info/
+dist/
+build/
+.pytest_cache/
+
+# Jupyter
+.ipynb_checkpoints/
+*.ipynb
+
+# macOS
+.DS_Store
+
+# Env
+.env

@@ -1,0 +1,33 @@
+[project]
+name = "festival-analysis"
+version = "0.1.0"
+description = "Wide analysis of festival DJ bookings across Europe and beyond."
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+    "httpx>=0.27",
+    "duckdb>=1.1",
+    "pydantic>=2.7",
+    "tenacity>=9.0",
+    "typer>=0.12",
+    "pandas>=3.0.2",
+    "ipython-sql>=0.5.0",
+    "tabulate>=0.10.0",
+    "seaborn>=0.13.2",
+    "aquarel>=0.0.7",
+]
+
+[project.scripts]
+festival-analysis = "festival_analysis.cli:app"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/festival_analysis"]
+
+[dependency-groups]
+dev = [
+    "pytest>=8.0",
+]
