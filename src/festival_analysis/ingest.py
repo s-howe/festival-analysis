@@ -125,7 +125,7 @@ def _ingest_festival(
             continue
 
         edition_year = ra_event.event_date.year if ra_event.event_date else None
-        instance_id = db.upsert_instance(
+        festival_event_id = db.upsert_festival_event(
             con,
             festival_id=festival_id,
             ra_event_id=ra_event.id,
@@ -153,7 +153,7 @@ def _ingest_festival(
                 )
                 db.upsert_lineup_entry(
                     con,
-                    instance_id=instance_id,
+                    festival_event_id=festival_event_id,
                     artist_id=artist_id,
                     raw_billing=artist.name,
                 )

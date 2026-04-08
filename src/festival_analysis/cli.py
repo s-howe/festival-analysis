@@ -114,7 +114,7 @@ def status_cmd() -> None:
     """Print row counts and resolution stats."""
     con = db.connect()
     db.init_schema(con)
-    for table in ("festivals", "festival_instances", "artists", "lineup_entries", "raw_events"):
+    for table in ("festivals", "festival_events", "artists", "lineup_entries", "raw_events"):
         count = con.execute(f"SELECT count(*) FROM {table}").fetchone()[0]
         typer.echo(f"{table:<20} {count}")
     resolved = con.execute(

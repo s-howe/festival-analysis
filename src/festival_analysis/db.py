@@ -56,7 +56,7 @@ def upsert_festival(
     return festival_id
 
 
-def upsert_instance(
+def upsert_festival_event(
     con: duckdb.DuckDBPyConnection,
     festival_id: int,
     ra_event_id: str,
@@ -67,17 +67,17 @@ def upsert_instance(
     location_city: str | None,
     venue_name: str | None,
 ) -> int:
-    instance_id = stable_id(festival_id, ra_event_id)
+    festival_event_id = stable_id(festival_id, ra_event_id)
     con.execute(
         """
-        INSERT INTO festival_instances (
-          instance_id, festival_id, ra_event_id, edition_year,
+        INSERT INTO festival_events (
+          festival_event_id, festival_id, ra_event_id, edition_year,
           start_date, end_date, location_country, location_city, venue_name
         ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-        ON CONFLICT (instance_id) DO NOTHING
+        ON CONFLICT (festival_event_id) DO NOTHING
         """,
         [
-            instance_id,
+            festival_event_id,
             festival_id,
             ra_event_id,
             edition_year,
@@ -88,7 +88,7 @@ def upsert_instance(
             venue_name,
         ],
     )
-    return instance_id
+    return festival_event_id
 
 
 def upsert_artist(
@@ -111,18 +111,18 @@ def upsert_artist(
 
 def upsert_lineup_entry(
     con: duckdb.DuckDBPyConnection,
-    instance_id: int,
+    festival_event_id: int,
     artist_id: int,
     raw_billing: str | None,
 ) -> None:
-    entry_id = stable_id(instance_id, artist_id)
+    entry_id = stable_id(festival_event_id, artist_id)
     con.execute(
         """
-        INSERT INTO lineup_entries (entry_id, instance_id, artist_id, raw_billing)
+        INSERT INTO lineup_entries (entry_id, festival_event_id, artist_id, raw_billing)
         VALUES (?, ?, ?, ?)
         ON CONFLICT (entry_id) DO NOTHING
         """,
-        [entry_id, instance_id, artist_id, raw_billing],
+        [entry_id, festival_event_id, artist_id, raw_billing],
     )
 
 
