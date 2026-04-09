@@ -1,7 +1,6 @@
 CREATE TABLE IF NOT EXISTS festivals (
   festival_id   BIGINT PRIMARY KEY,
   name          TEXT NOT NULL UNIQUE,
-  size          INTEGER,  -- legacy, unused
   size_band     TEXT,     -- e.g. '3 - M' (see size_bands table)
   ra_slug       TEXT,
   ra_club_id    TEXT,
@@ -54,8 +53,6 @@ ALTER TABLE artists ADD COLUMN IF NOT EXISTS twitter_url    TEXT;
 ALTER TABLE artists ADD COLUMN IF NOT EXISTS gender         TEXT;
 ALTER TABLE artists ADD COLUMN IF NOT EXISTS race           TEXT;
 ALTER TABLE artists ADD COLUMN IF NOT EXISTS enriched_at    TIMESTAMP;
-
-DROP TABLE IF EXISTS artist_genres;
 
 CREATE TABLE IF NOT EXISTS size_bands (
   label        TEXT PRIMARY KEY,
