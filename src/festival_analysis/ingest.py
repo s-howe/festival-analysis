@@ -61,6 +61,8 @@ def run(
         len(eligible) - len(with_id),
     )
 
+    country_to_iso2 = db.load_country_lookup(con)
+
     with RAClient(cache_dir=cache_dir, refresh=refresh) as client:
         for idx, row in enumerate(eligible, 1):
             name = row["name"]
@@ -91,6 +93,7 @@ def run(
                     first_year,
                     last_year,
                     title_filter,
+                    country_to_iso2,
                 )
                 con.commit()
             except Exception:
@@ -107,6 +110,7 @@ def _ingest_festival(
     first_year: int,
     last_year: int | None = None,
     title_filter: str | None = None,
+    country_to_iso2: dict | None = None,
 ) -> None:
     for ev in client.fetch_events_for_entity(
         ra_slug, ra_id, first_year=first_year, last_year=last_year
@@ -125,6 +129,10 @@ def _ingest_festival(
             continue
 
         edition_year = ra_event.event_date.year if ra_event.event_date else None
+        country_name = ra_event.venue.country
+        country = (country_to_iso2 or {}).get(country_name) if country_name else None
+        if country_name and country is None:
+            logger.warning("unknown country %r — location_country will be NULL", country_name)
         festival_event_id = db.upsert_festival_event(
             con,
             festival_id=festival_id,
@@ -132,7 +140,7 @@ def _ingest_festival(
             edition_year=edition_year,
             start_date=ra_event.event_date,
             end_date=ra_event.event_date,
-            location_country=ra_event.venue.country,
+            location_country=country,
             location_city=ra_event.venue.city,
             venue_name=ra_event.venue.name,
         )

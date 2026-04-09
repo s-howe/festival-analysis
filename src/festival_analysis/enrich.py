@@ -13,12 +13,19 @@ from .ra_client import RAClient
 
 logger = logging.getLogger(__name__)
 
-def _upsert_artist_profile(con: duckdb.DuckDBPyConnection, profile: dict) -> None:
+def _upsert_artist_profile(
+    con: duckdb.DuckDBPyConnection,
+    profile: dict,
+    country_to_iso2: dict[str, str],
+) -> None:
     artist_id_str = profile.get("id")
     if not artist_id_str:
         return
 
-    country = (profile.get("country") or {}).get("name")
+    country_name = (profile.get("country") or {}).get("name")
+    country = country_to_iso2.get(country_name) if country_name else None
+    if country_name and country is None:
+        logger.warning("unknown artist country %r — will be stored as NULL", country_name)
     area = (profile.get("area") or {}).get("name")
     status = profile.get("status")
     instagram = profile.get("instagram") or None
@@ -62,6 +69,8 @@ def enrich_artists(
     total = len(ids)
     logger.info("enriching %d artists in batches of %d", total, batch_size)
 
+    country_to_iso2 = db.load_country_lookup(con)
+
     done = 0
     for start in range(0, total, batch_size):
         batch = ids[start : start + batch_size]
@@ -77,7 +86,7 @@ def enrich_artists(
         try:
             for key, profile in data.items():
                 if profile:
-                    _upsert_artist_profile(con, profile)
+                    _upsert_artist_profile(con, profile, country_to_iso2)
             con.commit()
         except Exception:
             con.rollback()

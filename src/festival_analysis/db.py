@@ -5,7 +5,7 @@ from pathlib import Path
 
 import duckdb
 
-from .config import DB_PATH
+from .config import COUNTRIES_CSV, DB_PATH
 
 SCHEMA_PATH = Path(__file__).with_name("schema.sql")
 
@@ -28,8 +28,40 @@ def connect(db_path: Path | None = None) -> duckdb.DuckDBPyConnection:
     return duckdb.connect(str(path))
 
 
+def _seed_countries(con: duckdb.DuckDBPyConnection) -> None:
+    """Upsert source-data/countries.csv into the countries table."""
+    con.execute(
+        f"""
+        INSERT INTO countries (country, name, continent, population)
+        SELECT country, name, continent, population
+        FROM read_csv(
+            '{COUNTRIES_CSV}',
+            header    = true,
+            columns   = {{
+                'name':       'TEXT',
+                'country':    'TEXT',
+                'continent':  'TEXT',
+                'population': 'INTEGER'
+            }},
+            nullstr = ''
+        )
+        ON CONFLICT (country) DO UPDATE SET
+            name       = excluded.name,
+            continent  = excluded.continent,
+            population = excluded.population
+        """
+    )
+
+
+def load_country_lookup(con: duckdb.DuckDBPyConnection) -> dict[str, str]:
+    """Return {country_name: country_code} for use during ingest and enrichment."""
+    rows = con.execute("SELECT name, country FROM countries").fetchall()
+    return {name: code for name, code in rows if name}
+
+
 def init_schema(con: duckdb.DuckDBPyConnection) -> None:
     con.execute(SCHEMA_PATH.read_text())
+    _seed_countries(con)
 
 
 def upsert_festival(
