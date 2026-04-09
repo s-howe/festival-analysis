@@ -135,7 +135,6 @@ GROUP BY
 
 CREATE OR REPLACE VIEW edition_lineups AS
 SELECT DISTINCT
-  le.entry_id,
   fe.festival_id,
   f.name              AS festival_name,
   f.size_band,
