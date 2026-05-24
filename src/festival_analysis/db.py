@@ -129,6 +129,46 @@ def upsert_artist(
     normalized_name: str,
     ra_artist_id: str | None,
 ) -> int:
+    # 1. If we have an RA ID, check whether this artist already exists by that ID.
+    if ra_artist_id:
+        row = con.execute(
+            "SELECT artist_id FROM artists WHERE ra_artist_id = ?", [ra_artist_id]
+        ).fetchone()
+        if row:
+            return row[0]
+
+    # 2. Look up by normalised name.
+    row = con.execute(
+        "SELECT artist_id, ra_artist_id FROM artists WHERE normalized_name = ? LIMIT 1",
+        [normalized_name],
+    ).fetchone()
+    if row:
+        existing_id, existing_ra_id = row
+        if not existing_ra_id:
+            # Existing record has no RA link — safe to reuse it.
+            # Note: we deliberately do NOT update ra_artist_id here because
+            # DuckDB implements unique-key updates as delete+insert internally,
+            # which triggers a spurious FK-constraint error against lineup_entries
+            # inside a transaction.  The fix_artist_dupes.py Part A migration
+            # handles linking these records after ingest completes.
+            return existing_id
+        # Both have RA IDs and they differ → treat as distinct artists
+        # (e.g. "Mika." RA:163793 vs "Mika" RA:28630).
+
+    # 3. Greedy prefix match — only for unlinked splits (no ra_artist_id).
+    # If this name is a unique prefix of exactly one RA-linked artist already in
+    # the DB, use that artist rather than creating a new ghost record.
+    if not ra_artist_id:
+        rows = con.execute(
+            """SELECT artist_id FROM artists
+               WHERE ra_artist_id IS NOT NULL
+                 AND normalized_name LIKE ? || ' %'""",
+            [normalized_name],
+        ).fetchall()
+        if len(rows) == 1:
+            return rows[0][0]
+
+    # 4. Create a new record.
     artist_id = stable_id(normalized_name, ra_artist_id or "")
     con.execute(
         """
@@ -139,6 +179,35 @@ def upsert_artist(
         [artist_id, ra_artist_id, display_name, normalized_name],
     )
     return artist_id
+
+
+def merge_artists(
+    con: duckdb.DuckDBPyConnection,
+    keep_id: int,
+    drop_id: int,
+) -> int:
+    """Move all lineup entries from *drop_id* to *keep_id*, then delete *drop_id*.
+
+    Returns the number of entries reassigned.  Safe to call when *drop_id*
+    no longer exists (returns 0).
+    """
+    rows = con.execute(
+        "SELECT festival_event_id, raw_billing FROM lineup_entries WHERE artist_id = ?",
+        [drop_id],
+    ).fetchall()
+    for event_id, raw_billing in rows:
+        new_entry_id = stable_id(event_id, keep_id)
+        con.execute(
+            """
+            INSERT INTO lineup_entries (entry_id, festival_event_id, artist_id, raw_billing)
+            VALUES (?, ?, ?, ?)
+            ON CONFLICT (entry_id) DO NOTHING
+            """,
+            [new_entry_id, event_id, keep_id, raw_billing],
+        )
+    con.execute("DELETE FROM lineup_entries WHERE artist_id = ?", [drop_id])
+    con.execute("DELETE FROM artists WHERE artist_id = ?", [drop_id])
+    return len(rows)
 
 
 def upsert_lineup_entry(

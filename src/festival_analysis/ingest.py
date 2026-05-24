@@ -6,8 +6,14 @@ import logging
 from pathlib import Path
 
 from . import db
-from .config import CACHE_DIR, DB_PATH, FESTIVALS_CSV
-from .normalize import normalize_name, split_b2b
+from .config import ARTIST_ALIASES_CSV, CACHE_DIR, DB_PATH, DUO_ACTS_FILE, FESTIVALS_CSV
+from .normalize import (
+    is_duo_act,
+    load_artist_aliases,
+    load_duo_acts,
+    normalize_name,
+    split_b2b,
+)
 from .parser import parse_event_listing
 from .ra_client import RAClient
 
@@ -62,6 +68,8 @@ def run(
     )
 
     country_to_iso2 = db.load_country_lookup(con)
+    duo_acts = load_duo_acts(DUO_ACTS_FILE) if DUO_ACTS_FILE.exists() else frozenset()
+    aliases = load_artist_aliases(ARTIST_ALIASES_CSV) if ARTIST_ALIASES_CSV.exists() else {}
 
     with RAClient(cache_dir=cache_dir, refresh=refresh) as client:
         for idx, row in enumerate(eligible, 1):
@@ -69,6 +77,7 @@ def run(
             ra_club_id = (row.get("ra_club_id") or "").strip()
             ra_slug = (row.get("ra_slug") or "").strip()
             title_filter = (row.get("title_filter") or "").strip() or None
+            title_exclude = (row.get("title_exclude") or "").strip() or None
             festival_id = db.upsert_festival(
                 con,
                 name=name,
@@ -94,6 +103,9 @@ def run(
                     last_year,
                     title_filter,
                     country_to_iso2,
+                    duo_acts,
+                    aliases,
+                    title_exclude,
                 )
                 con.commit()
             except Exception:
@@ -111,14 +123,21 @@ def _ingest_festival(
     last_year: int | None = None,
     title_filter: str | None = None,
     country_to_iso2: dict | None = None,
+    duo_acts: frozenset[str] | None = None,
+    aliases: dict[str, str] | None = None,
+    title_exclude: str | None = None,
 ) -> None:
     for ev in client.fetch_events_for_entity(
         ra_slug, ra_id, first_year=first_year, last_year=last_year
     ):
-        if title_filter:
-            event_title = ev.get("title") or ""
-            if title_filter.lower() not in event_title.lower():
-                continue
+        event_title = ev.get("title") or ""
+        if title_filter and title_filter.lower() not in event_title.lower():
+            continue
+        if title_exclude and any(
+            term.strip().lower() in event_title.lower()
+            for term in title_exclude.split("|")
+        ):
+            continue
         cache_key = client.cache_key(
             "event_entity_entry", {"event_id": ev.get("id")}
         )
@@ -146,16 +165,31 @@ def _ingest_festival(
         )
 
         for artist in ra_event.artists:
-            for piece in split_b2b(artist.name):
-                norm = normalize_name(piece)
+            billing = artist.name
+
+            # Duo acts are kept as a single entry; everything else is split.
+            if duo_acts and is_duo_act(billing, duo_acts):
+                pieces: list[tuple[str, str | None]] = [(billing, artist.id)]
+            else:
+                split_pieces = split_b2b(billing)
+                if len(split_pieces) == 1:
+                    # Single artist — keep RA ID as-is.
+                    pieces = [(billing, artist.id)]
+                else:
+                    # Multi-part split: RA ID is not reliable per-part, but an
+                    # alias entry can supply one for known short-name aliases.
+                    pieces = [
+                        (piece, (aliases or {}).get(normalize_name(piece)))
+                        for piece in split_pieces
+                    ]
+
+            for display_name, ra_artist_id in pieces:
+                norm = normalize_name(display_name)
                 if not norm:
                     continue
-                # If the original RA artist record had an id but we b2b-split,
-                # the id only safely applies when there was a single artist.
-                ra_artist_id = artist.id if len(split_b2b(artist.name)) == 1 else None
                 artist_id = db.upsert_artist(
                     con,
-                    display_name=piece,
+                    display_name=display_name,
                     normalized_name=norm,
                     ra_artist_id=ra_artist_id,
                 )
@@ -163,5 +197,5 @@ def _ingest_festival(
                     con,
                     festival_event_id=festival_event_id,
                     artist_id=artist_id,
-                    raw_billing=artist.name,
+                    raw_billing=billing,
                 )

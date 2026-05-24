@@ -1,0 +1,41 @@
+# Billing strings that represent established duo/group acts and should NEVER be
+# split on "&".  One entry per line; lines starting with "#" are comments.
+# Keep sorted alphabetically for easy maintenance.
+Aly & Fila
+Amine Edge & DANCE
+Body & Soul
+Benoit & Sergio
+Blackhall & Bookless
+Blasha & Allatt
+Bongo & Pusk
+Brame & Hamo
+Chase & Status
+Cockwhore & Macho
+Dense & Pika
+Dom & Roland
+Eagles & Butterflies
+Eli & Fur
+Foehn & Jerome
+Frankel & Harper
+Gin & Tonic
+Frankey & Sandrino
+Giolì & Assia
+Harri & Domenic
+Heels & Souls
+Hercules & Love Affair
+Huntleys & Palmers
+Jackson & His Computer Band
+Juju & Jordash
+Kruder & Dorfmeister
+Larkin & The Sky
+Livio & Roby
+Maze & Masters
+Nic & Kaleb
+Nick & Nath
+Peak & Swift
+Polo & Pan
+Rhythm & Sound
+Sven & Tettero
+Tiger & Woods
+Waifs & Strays
+Waze & Odyssey

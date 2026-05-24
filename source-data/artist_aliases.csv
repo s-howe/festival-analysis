@@ -1,0 +1,9 @@
+# Maps a billing name (as it appears after b2b/& splitting) to a canonical RA
+# artist ID. Used when the split part's name differs from the artist's solo name.
+# billing_name is matched case-insensitively on the normalised form.
+#
+# Find an artist's RA ID at: https://ra.co/dj/<slug>
+# (the numeric ID appears in the page source or GraphQL responses)
+billing_name,ra_artist_id
+Hamish,20439
+Toby,55713

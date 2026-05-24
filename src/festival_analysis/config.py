@@ -6,6 +6,8 @@ SOURCE_DATA_DIR = REPO_ROOT / "source-data"
 FESTIVAL_NAMES_CSV = SOURCE_DATA_DIR / "festival-names.csv"
 FESTIVALS_CSV = SOURCE_DATA_DIR / "festivals.csv"
 COUNTRIES_CSV = SOURCE_DATA_DIR / "countries.csv"
+DUO_ACTS_FILE = SOURCE_DATA_DIR / "duo_acts.txt"
+ARTIST_ALIASES_CSV = SOURCE_DATA_DIR / "artist_aliases.csv"
 
 DATA_DIR = REPO_ROOT / "data"
 DB_PATH = DATA_DIR / "festival.duckdb"
