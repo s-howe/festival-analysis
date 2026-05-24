@@ -58,6 +58,7 @@ Apparently RA has a GraphQL API which is fairly undocumented. Resources:
 
 ## Future ideas (later projects)
 
+- Causal impact on diversity - did 2020's BLM and other diversity focuses cause an increase in diversity in festival bookings? By how much? Was this focused on certain types of festivals and not others?
 - Festival vs club appearances - who only plays festivals/only plays clubs
 - Artists by genre - capture artist bios and extract genres, use to group festivals by main genres
 - Predictive modeling - can we accurately predict the lineup of next year’s Dekmantel based on artist features?
