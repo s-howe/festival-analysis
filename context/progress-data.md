@@ -1,4 +1,4 @@
-# Progress Notes
+# Progress Notes - data collection and enrichment
 
 ## Current State
 
