@@ -12,3 +12,8 @@ def query_db(query: str, index: str | None = None) -> pd.DataFrame:
         df.set_index(index, inplace=True)
 
     return df
+
+
+def jaccard_similarity(s1: set, s2: set) -> float:
+    """Compute the Jaccard similarity index between two sets."""
+    return len(s1.intersection(s2)) / len(s1.union(s2))
